@@ -261,11 +261,27 @@ const server = http.createServer(async (req, res) => {
           });
           const upstreamData = upstreamModelsRes.data || [];
           if (upstreamData.length > 0) {
-            const mapped = upstreamData.map(m => ({
-              id: `claude-opencode-${m.id}`,
-              object: "model",
-              display_name: `${m.id} (via opencode-go)`
-            }));
+            const mapped = [];
+            for (const m of upstreamData) {
+              const baseId = `claude-opencode-${m.id}`;
+              // Only add effort variants for Muse Spark, others just one
+              if (m.id.startsWith("muse-spark")) {
+                for (const eff of ["minimal","low","medium","high","max"]) {
+                  mapped.push({
+                    id: `${baseId}:${eff}`,
+                    object: "model",
+                    display_name: `${m.id} (${eff}) via opencode-go`
+                  });
+                }
+              } else {
+                mapped.push({
+                  id: baseId,
+                  object: "model",
+                  display_name: `${m.id} (via opencode-go)`
+                });
+              }
+            }
+            // Add standard aliases on top
             mapped.unshift(
               { id: "claude-sonnet-4-5", object: "model", display_name: "muse-spark-1.3-contributor (via opencode-go)" },
               { id: "claude-opus-4-5", object: "model", display_name: "muse-spark-1.3-contributor (via opencode-go)" }
@@ -292,7 +308,9 @@ const server = http.createServer(async (req, res) => {
         const parsed = JSON.parse(body || "{}");
         const rawModel = String(parsed.model || "claude-sonnet-4-5").split("/").pop();
         // Map valid Anthropic gateway models to upstream muse-spark-1.3-contributor
-        const upstreamModel = rawModel.startsWith("claude-opencode-") ? rawModel.replace("claude-opencode-", "") : rawModel.startsWith("claude-") ? "muse-spark-1.3-contributor" : rawModel;
+        let upstreamModel = rawModel.startsWith("claude-opencode-") ? rawModel.replace("claude-opencode-", "") : rawModel.startsWith("opencode-go/") ? rawModel.replace("opencode-go/", "") : rawModel.startsWith("claude-") ? "muse-spark-1.3-contributor" : rawModel;
+        // Strip effort suffix if present (e.g. muse-spark-1.3-contributor:low -> muse-spark-1.3-contributor)
+        if (upstreamModel.includes(":")) upstreamModel = upstreamModel.split(":")[0];
         const model = rawModel; // for response
         const isMuseSpark = upstreamModel.startsWith("muse-spark");
         const upstreamPath = isMuseSpark ? UPSTREAM.pathname + "/responses" : UPSTREAM.pathname + "/chat/completions";
@@ -321,6 +339,20 @@ const server = http.createServer(async (req, res) => {
             if (text) parts.push(`${m.role}: ${text}`);
           }
           oaiBody = { model: upstreamModel, input: parts.join("\n\n"), stream: false };
+          // Handle reasoning effort for Muse Spark: check model suffix like :low, :minimal, :high, :max
+          let effort = "high";
+          if (rawModel.includes(":")) {
+            const partsEff = rawModel.split(":");
+            const eff = partsEff[1];
+            if (["minimal","low","medium","high","max"].includes(eff)) effort = eff;
+          } else if (parsed.thinking && parsed.thinking.type === "enabled") {
+            // Map Claude thinking budget to Muse Spark effort
+            const budget = parsed.thinking.budget_tokens || 0;
+            if (budget < 1000) effort = "low";
+            else if (budget < 5000) effort = "medium";
+            else effort = "high";
+          }
+          oaiBody.reasoning = { effort };
           if (parsed.max_tokens) oaiBody.max_output_tokens = parsed.max_tokens;
           else oaiBody.max_output_tokens = 4096;
           if (parsed.temperature!==undefined) oaiBody.temperature = parsed.temperature;

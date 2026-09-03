@@ -263,19 +263,17 @@ const server = http.createServer(async (req, res) => {
           if (upstreamData.length > 0) {
             const mapped = [];
             for (const m of upstreamData) {
-              const baseId = `claude-opencode-${m.id}`;
-              // Only add effort variants for Muse Spark, others just one
-              if (m.id.startsWith("muse-spark")) {
+              if (m.id === "muse-spark-1.3-contributor") {
                 for (const eff of ["minimal","low","medium","high","max"]) {
                   mapped.push({
-                    id: `${baseId}:${eff}`,
+                    id: `claude-opencode-${m.id}:${eff}`,
                     object: "model",
                     display_name: `${m.id} (${eff}) via opencode-go`
                   });
                 }
               } else {
                 mapped.push({
-                  id: baseId,
+                  id: `claude-opencode-${m.id}`,
                   object: "model",
                   display_name: `${m.id} (via opencode-go)`
                 });

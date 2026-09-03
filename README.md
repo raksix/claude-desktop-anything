@@ -238,14 +238,22 @@ Pick `claude-sonnet-4-5` in the model picker — behind the scenes it's Muse Spa
 | `max_output_tokens` incomplete | Muse Spark needs ~300 reasoning tokens | Default to `4096` if not set |
 | `is not an Anthropic model` warning | `inferenceModels` contains `muse-spark...` | Use `claude-sonnet-4-5` and map upstream |
 
-### Endpoints Reference (from opencode.ai/docs/go)
+### Endpoints & Context Reference (from opencode.ai/docs/go)
 
-| Model | Model ID | Endpoint |
-|---|---|---|
-| Muse Spark 1.3 | `muse-spark-1.3-contributor` | `https://opencode.ai/zen/go/v1/responses` |
-| DeepSeek V4 Flash | `deepseek-v4-flash` | `.../v1/chat/completions` |
-| GLM-5.3 | `glm-5.3` | `.../v1/chat/completions` |
-| ... | ... | ... |
+| Model | Model ID | Endpoint | Context |
+|---|---|---|---|
+| Muse Spark 1.3 Contributor | `muse-spark-1.3-contributor` | `https://opencode.ai/zen/go/v1/responses` | **1,048,576 (1M)** |
+| Muse Spark 1.2 Contributor | `muse-spark-1.2-contributor` | `.../v1/responses` | **1,048,576 (1M)** |
+| DeepSeek V4 Flash | `deepseek-v4-flash` | `.../v1/chat/completions` | 128k |
+| DeepSeek V4 Pro | `deepseek-v4-pro` | `.../v1/chat/completions` | 128k |
+| GLM-5.3 / 5.3-Flash / 5.2 / 5.1 | `glm-5.3*` | `.../v1/chat/completions` | 128k |
+| Kimi K3 / K2.7 / K2.6 | `kimi-k3*` | `.../v1/chat/completions` | 128k–1M (varies) |
+| MiniMax M3 / M2.7 | `minimax-m3*` | `.../v1/messages` (Anthropic) | 1M |
+| Qwen3.8 Max / Flash | `qwen3.8-*` | `.../v1/messages` | 1M |
+| Grok 4.6 | `grok-4.6` | `.../v1/responses` | 256k |
+| LongCat 2.0 / MiMo / Hy3 / 4 | `longcat-2.0*` | `.../v1/chat/completions` | 128k–1M |
+
+> **Düzeltme:** Önceki sürümde bazı 1M modeller için yanlışlıkla 200k yazılmıştı — doğrusu yukarıdaki gibi **1M (1,048,576)**. Muse Spark'lar kesinlikle 1M.
 
 Full list: `curl https://opencode.ai/zen/go/v1/models -H "Authorization: Bearer sk-..." | jq`
 

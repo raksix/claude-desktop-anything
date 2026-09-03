@@ -264,7 +264,7 @@ const server = http.createServer(async (req, res) => {
             const mapped = [];
             for (const m of upstreamData) {
               if (m.id === "muse-spark-1.3-contributor") {
-                for (const eff of ["minimal","low","medium","high","max"]) {
+                for (const eff of ["minimal","low","medium","high"]) {
                   mapped.push({
                     id: `claude-opencode-${m.id}:${eff}`,
                     object: "model",
@@ -342,7 +342,7 @@ const server = http.createServer(async (req, res) => {
           if (rawModel.includes(":")) {
             const partsEff = rawModel.split(":");
             const eff = partsEff[1];
-            if (["minimal","low","medium","high","max"].includes(eff)) effort = eff;
+            if (["minimal","low","medium","high"].includes(eff)) effort = eff; else if (eff === "max") effort = "high";
           } else if (parsed.thinking && parsed.thinking.type === "enabled") {
             // Map Claude thinking budget to Muse Spark effort
             const budget = parsed.thinking.budget_tokens || 0;

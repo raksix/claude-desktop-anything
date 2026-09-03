@@ -1,0 +1,14 @@
+# Secrets — never commit your API key
+.env
+*.key
+configLibrary/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Node
+node_modules/

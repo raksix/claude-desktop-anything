@@ -241,13 +241,41 @@ function sseOut(events) {
 }
 
 // ---------------- HTTP server ----------------
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   let body = "";
   req.on("data", (c) => (body += c));
-  req.on("end", () => {
+  req.on("end", async () => {
     try {
       if (req.method === "GET" && req.url.startsWith("/v1/models")) {
         log(`GET /v1/models`);
+        try {
+          const upstreamModelsRes = await new Promise((resolve, reject) => {
+            const opts = { hostname: UPSTREAM.hostname, port: 443, path: "/zen/go/v1/models", method: "GET", headers: { authorization: `Bearer ${KEY}` } };
+            const ureq = https.request(opts, (ures) => {
+              let data = "";
+              ures.on("data", c => data += c);
+              ures.on("end", () => { try { resolve(JSON.parse(data)); } catch(e) { resolve({ data: [] }); } });
+            });
+            ureq.on("error", () => resolve({ data: [] }));
+            ureq.end();
+          });
+          const upstreamData = upstreamModelsRes.data || [];
+          if (upstreamData.length > 0) {
+            const mapped = upstreamData.map(m => ({
+              id: `claude-opencode-${m.id}`,
+              object: "model",
+              display_name: `${m.id} (via opencode-go)`
+            }));
+            mapped.unshift(
+              { id: "claude-sonnet-4-5", object: "model", display_name: "muse-spark-1.3-contributor (via opencode-go)" },
+              { id: "claude-opus-4-5", object: "model", display_name: "muse-spark-1.3-contributor (via opencode-go)" }
+            );
+            res.writeHead(200, { "content-type": "application/json" });
+            res.end(JSON.stringify({ data: mapped }));
+            log(`GET /v1/models -> ${mapped.length} models (dynamic)`);
+            return;
+          }
+        } catch(e) { log(`GET /v1/models fetch failed: ${e}`); }
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({ data: [{
           id: "claude-sonnet-4-5",
@@ -262,9 +290,9 @@ const server = http.createServer((req, res) => {
       }
       if (req.method === "POST" && req.url.startsWith("/v1/messages")) {
         const parsed = JSON.parse(body || "{}");
-        const rawModel = String(parsed.model || "muse-spark-1.3-contributor").split("/").pop();
+        const rawModel = String(parsed.model || "claude-sonnet-4-5").split("/").pop();
         // Map valid Anthropic gateway models to upstream muse-spark-1.3-contributor
-        const upstreamModel = rawModel.startsWith("claude-") ? "muse-spark-1.3-contributor" : rawModel;
+        const upstreamModel = rawModel.startsWith("claude-opencode-") ? rawModel.replace("claude-opencode-", "") : rawModel.startsWith("claude-") ? "muse-spark-1.3-contributor" : rawModel;
         const model = rawModel; // for response
         const isMuseSpark = upstreamModel.startsWith("muse-spark");
         const upstreamPath = isMuseSpark ? UPSTREAM.pathname + "/responses" : UPSTREAM.pathname + "/chat/completions";
